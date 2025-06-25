@@ -274,22 +274,46 @@ func main() {
 		htmlPath := filepath.Join(outputDir, ex.File+".html")
 		pdfPath := filepath.Join(outputDir, ex.File+".pdf")
 
-		// Save original HTML content
-		err = createHTMLFile(ex.Content, htmlPath)
-		if err != nil {
-			log.Printf("[ERROR] Could not create HTML for %s: %v", ex.Title, err)
+		// Check if both HTML and PDF already exist
+		htmlExists := false
+		pdfExists := false
+
+		if _, err := os.Stat(htmlPath); err == nil {
+			htmlExists = true
+		}
+		if _, err := os.Stat(pdfPath); err == nil {
+			pdfExists = true
+		}
+
+		// If both files exist, skip this example
+		if htmlExists && pdfExists {
+			fmt.Printf("[SKIPPED] %s (files already exist)\n", ex.Title)
+			pdfPaths = append(pdfPaths, pdfPath)
 			continue
 		}
 
-		// Convert to PDF
-		err = htmlToPDF(browser, htmlPath, pdfPath)
-		if err != nil {
-			log.Printf("[ERROR] Could not create PDF for %s: %v", ex.Title, err)
-			continue
+		// Save original HTML content (only if HTML doesn't exist)
+		if !htmlExists {
+			err = createHTMLFile(ex.Content, htmlPath)
+			if err != nil {
+				log.Printf("[ERROR] Could not create HTML for %s: %v", ex.Title, err)
+				continue
+			}
+		}
+
+		// Convert to PDF (only if PDF doesn't exist)
+		if !pdfExists {
+			err = htmlToPDF(browser, htmlPath, pdfPath)
+			if err != nil {
+				log.Printf("[ERROR] Could not create PDF for %s: %v", ex.Title, err)
+				continue
+			}
+			fmt.Printf("[PDF CREATED] %s.pdf (Example %d)\n", ex.File, i+1)
+		} else {
+			fmt.Printf("[PDF EXISTS] %s.pdf (Example %d)\n", ex.File, i+1)
 		}
 
 		pdfPaths = append(pdfPaths, pdfPath)
-		fmt.Printf("[PDF CREATED] %s.pdf (Example %d)\n", ex.File, i+1)
 
 		// Small delay to be nice to the browser
 		time.Sleep(100 * time.Millisecond)
@@ -346,11 +370,15 @@ func main() {
             margin-top: 0;
             font-size: 16px;
         }
-        ul {
-            font-size: 16px;
+        .toc-container {
+            font-size: 14px;
+            line-height: 1.4;
         }
-        li {
-            margin-bottom: 8px;
+        .toc-container ul {
+            font-size: 14px;
+        }
+        .toc-container li {
+            margin-bottom: 6px;
             line-height: 1.3;
         }
         .page-number {
@@ -360,33 +388,27 @@ func main() {
     </style>
 </head>
 <body>
-    <h1>Go by Example - Complete Book</h1>
+    <h1>Go by Example as a E-Book</h1>
+    <h2>Famously published at https://gobyexample.com</h2>
 
     <div class="intro">
-        <h3>📖 How to Navigate This Book</h3>
-        <p>This PDF contains all Go programming examples with a built-in table of contents. To navigate between examples:</p>
-        <ul>
-            <li><strong>Use your PDF viewer's Table of Contents feature</strong> - Look for a TOC icon or menu option in your PDF viewer</li>
-            <li><strong>Use the Bookmarks panel</strong> - Most PDF viewers have a bookmarks sidebar that shows clickable chapter links</li>
-            <li><strong>Keyboard shortcuts</strong> - Many viewers support Ctrl/Cmd + G to jump to specific pages</li>
-        </ul>
-        <p>The examples below are listed with their page numbers for reference.</p>
+        <h3>📖 Navigation</h3>
+        <p>Use your PDF viewer's bookmark panel to navigate between examples. The bookmarks provide clickable links to jump directly to each Go programming example.</p>
     </div>
 
+    <div style="page-break-before: always;"></div>
+
     <h2>Table of Contents</h2>
-    <ul>
+    <div class="toc-container">
+        <ul>
 `
 
 	for i, ex := range examples {
-		pageNum := i + 2 // Intro is page 1, examples start from page 2
+		pageNum := i + 3 // Intro is page 1, TOC starts at page 2, examples start from page 3
 		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %d. %s</li>\n", pageNum, i+1, ex.Title)
 	}
 
-	introHTML += `    </ul>
-
-    <div class="intro">
-        <h3>💡 Tip</h3>
-        <p>For the best navigation experience, use your PDF viewer's built-in table of contents rather than trying to click on the page numbers above. The bookmarks in this PDF are fully functional and will take you directly to each example.</p>
+	introHTML += `        </ul>
     </div>
 
     <script src="site.js"></script>
@@ -406,13 +428,20 @@ func main() {
 	}
 	fmt.Printf("[INTRO PDF CREATED] intro.pdf\n")
 
-	// Merge intro with examples
+	// Now merge intro with examples
 	tempMergedPdf := filepath.Join(outputDir, "temp_with_intro.pdf")
 	introAndExamples := []string{introPdfPath, mergedExamplesPdf}
 
 	err = api.MergeCreateFile(introAndExamples, tempMergedPdf, false, conf)
 	if err != nil {
 		log.Fatalf("[ERROR] Could not merge intro with examples: %v", err)
+	}
+
+	// Get the page count of the intro section to determine where examples start
+	introPageCount, err := api.PageCountFile(introPdfPath)
+	if err != nil {
+		log.Printf("[WARNING] Could not get intro page count: %v", err)
+		introPageCount = 2 // fallback assumption
 	}
 
 	// Add bookmarks to the final PDF
@@ -424,21 +453,22 @@ func main() {
 	bookmarks = append(bookmarks, pdfcpu.Bookmark{
 		Title:    "Introduction & Table of Contents",
 		PageFrom: 1,
-		PageThru: 1,
+		PageThru: introPageCount, // Intro and TOC span the actual number of pages
 	})
 
 	// Add bookmarks for each example
-	// Intro is page 1, examples start from page 2
+	// Examples start after the intro pages
+	exampleStartPage := introPageCount + 1
 	for i, ex := range examples {
 		bookmarks = append(bookmarks, pdfcpu.Bookmark{
 			Title:    fmt.Sprintf("%d. %s", i+1, ex.Title),
-			PageFrom: i + 2, // Page 2, 3, 4, etc.
-			PageThru: i + 2,
+			PageFrom: exampleStartPage + i, // Dynamic page calculation
+			PageThru: exampleStartPage + i,
 		})
 	}
 
 	// Add bookmarks to the final PDF
-	finalPdf := filepath.Join(outputDir, "go_by_example_complete.pdf")
+	finalPdf := "go_by_example_complete.pdf"
 	err = api.AddBookmarksFile(tempMergedPdf, finalPdf, bookmarks, true, conf)
 	if err != nil {
 		log.Printf("[WARNING] Could not add bookmarks: %v", err)
