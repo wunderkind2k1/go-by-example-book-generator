@@ -1,150 +1,92 @@
 # Go by Example PDF Generator
 
-This project downloads all Go programming language examples from the [Go by Example](https://gobyexample.com) website and converts them to PDF format. It creates both individual PDFs for each example and a combined PDF with a table of contents and navigation bookmarks.
+A tool that automatically generates a comprehensive PDF e-book from the [Go by Example](https://gobyexample.com) website. It downloads all Go programming examples and creates a single, navigable PDF with bookmarks and a table of contents.
 
-## Features
+## Background & Motivation
 
-- **Dynamic example discovery**: Automatically fetches all available examples from the [gobyexample repository](https://github.com/mmcgrana/gobyexample) using GitHub's embedded JSON data
-- **Individual PDFs**: Creates a separate PDF for each Go example
-- **Combined PDF**: Merges all examples into a single PDF with an introduction page and table of contents
-- **Navigation bookmarks**: Includes clickable bookmarks in the PDF for easy navigation between examples
-- **Smart caching with word-based matching**: Intelligently detects existing files using Jaccard similarity on word sets, making subsequent runs extremely fast
-- **Dynamic page calculation**: Automatically determines correct page numbers for bookmarks regardless of content length
-- **Modern PDF generation**: Uses Rod (headless browser) and pdfcpu for high-quality PDF output
-- **Clean formatting**: Applies consistent styling and layout to all PDFs
-- **Self-contained**: Downloads all required assets (CSS, JS, images) locally
-- **Reliable filename handling**: Uses URL filenames as the source of truth, avoiding HTML parsing issues
+The [Go by Example](https://gobyexample.com) website is an excellent resource for learning Go through annotated example programs. However, reading online can be inconvenient, and the site doesn't provide a downloadable format for offline reading.
 
-## Requirements
+This tool solves that problem by:
+- Automatically fetching all examples from the [Go by Example repository](https://github.com/mmcgrana/gobyexample)
+- Converting them to a single, well-formatted PDF e-book
+- Adding navigation bookmarks and a table of contents for easy browsing
+- Including proper attribution to the original source
 
+The generated e-book is perfect for offline study, reference, or printing.
+
+## How to Build
+
+**Requirements:**
 - Go 1.24.4 or later
-- Internet connection (to download examples from GitHub)
+- Internet connection
 
-## Installation
-
-1. Clone or download this repository
-2. Install dependencies:
-   ```bash
-   go mod tidy
-   ```
-
-## Usage
-
-Run the program:
+**Build steps:**
 ```bash
-go run main.go
+# Clone the repository
+git clone <repository-url>
+cd go-by-example-book
+
+# Install dependencies
+go mod tidy
+
+# Build the executable
+go build
 ```
 
-Or build and run:
+## How to Use
+
+**Run the generator:**
 ```bash
-go build
+# Option 1: Run directly
+go run main.go
+
+# Option 2: Use the built executable
 ./go-by-example-book
 ```
 
-## Output
+**What happens:**
+1. Downloads all Go examples from GitHub (first run takes several minutes)
+2. Converts each example to PDF format
+3. Creates a combined e-book with navigation bookmarks
+4. Cleans up temporary files
 
-The program creates:
+**Smart caching:** Subsequent runs are much faster as the tool skips already downloaded examples.
 
-- **Combined PDF**: `go_by_example_complete.pdf` in the project root - contains all examples with an introduction page and navigation bookmarks
-- **Files directory**: Contains individual PDFs, HTML files, and downloaded assets:
-  - **Individual PDFs**: One PDF file per Go example (e.g., `hello_world.pdf`, `functions.pdf`)
-  - **HTML files**: Temporary HTML files used for PDF generation
-  - **Assets**: Downloaded CSS, JS, and image files
+## Results & Files
 
-## How it works
+**Main output:**
+- `go-by-example-generated-ebook.pdf` - Complete e-book with all examples, table of contents, and navigation bookmarks
 
-1. **Dynamic discovery**: Fetches the list of all available examples from GitHub's embedded JSON data
-2. **Smart caching with word-based matching**:
-   - Extracts meaningful words from filenames (filtering out common terms like "go", "by", "example")
-   - Uses Jaccard similarity to match original filenames with existing HTML files
-   - Skips downloading if a match is found with ≥70% word overlap
-3. **Asset download**: Downloads all required CSS, JS, and image files from the repository
-4. **Content extraction**: Downloads and processes each HTML example file (skipping if already exists)
-5. **PDF generation**: Uses Rod (headless Chrome) to render HTML to PDF with proper styling
-6. **PDF merging**: Uses pdfcpu to combine all PDFs into a single file
-7. **Dynamic bookmark creation**: Calculates actual page numbers and adds navigation bookmarks to the final PDF
+**Files directory (`files/`):**
+- Individual PDF files for each example (e.g., `hello_world.pdf`, `functions.pdf`)
+- Downloaded assets (CSS, JS, images) from the original site
+- Temporary HTML files used during generation
 
-## Smart Caching System
+**Navigation features:**
+- **PDF bookmarks**: Use your PDF viewer's bookmark panel to jump between examples
+- **Table of contents**: Clickable page numbers for direct navigation
+- **Introduction page**: Contains attribution and usage instructions
 
-The program implements an intelligent caching system that makes subsequent runs extremely fast:
+**Attribution included:**
+The e-book properly credits the original [Go by Example](https://gobyexample.com) site and includes information about this generator tool.
 
-- **Word-based matching**: Compares filenames by extracting meaningful words and calculating similarity
-- **Jaccard similarity**: Uses intersection/union ratio to determine if files match
-- **URL-based titles**: Uses GitHub URL filenames as the source of truth, avoiding HTML parsing issues
-- **Resume capability**: Can be interrupted and restarted, continuing from where it left off
+## Project Structure
 
-Example matching:
-- Original: `"atomic-counters"` → words: `["atomic", "counters"]`
-- Existing: `"go_by_example_atomic_counters"` → words: `["atomic", "counters"]`
-- Result: Perfect match, skips download
-
-## Navigation
-
-The generated PDF includes:
-
-- **Introduction page**: Contains title, subtitle, and navigation instructions
-- **Table of contents**: Lists all examples with page numbers (starts on a new page)
-- **PDF bookmarks**: Clickable bookmarks in the PDF viewer's navigation panel that jump directly to each example
-
-To navigate the PDF:
-- Use your PDF viewer's **Table of Contents** feature (usually accessible via a TOC icon or menu)
-- Use the **Bookmarks panel** (most PDF viewers have a bookmarks sidebar)
-- Use keyboard shortcuts like `Ctrl/Cmd + G` to jump to specific pages
-
-## Performance
-
-- **First run**: Downloads all examples and creates PDFs (may take several minutes)
-- **Subsequent runs**: Only processes new or missing examples, making it much faster
-- **Smart caching**: Uses word-based matching to detect existing files, avoiding unnecessary downloads
-- **Resume capability**: If interrupted, restart the program and it will continue from where it left off
+```
+go-by-example-book/
+├── main.go                    # Main orchestration
+├── internal/
+│   ├── github/               # GitHub API & example fetching
+│   ├── htmlpdf/              # HTML/PDF processing & bookmarks
+│   └── naming/               # Filename processing
+└── README.md
+```
 
 ## Dependencies
 
-- `github.com/go-rod/rod` - Headless browser automation for HTML to PDF conversion
+- `github.com/go-rod/rod` - Headless browser for HTML→PDF conversion
 - `github.com/pdfcpu/pdfcpu` - PDF processing and merging
-
-## Troubleshooting
-
-### No examples found
-- Check your internet connection
-- Verify the GitHub repository is accessible
-- The program includes debug output to help identify issues
-
-### PDF generation errors
-- Rod automatically downloads Chromium on first run (may take a few minutes)
-- Ensure you have sufficient disk space for temporary files
-
-### File path issues
-- The program uses absolute paths for file:// URLs
-- Ensure the output directory is writable
-
-### Caching issues
-- The word-based matching system handles most edge cases automatically
-- If a file isn't detected as existing, it will be downloaded (this is safe and expected for new files)
-
-## Example Output Structure
-
-```
-go_by_example_complete.pdf        # Combined PDF with bookmarks (project root)
-files/
-├── hello_world.pdf              # Individual example
-├── functions.pdf                # Individual example
-├── variables.pdf                # Individual example
-├── ...                          # More examples
-├── site.css                     # Downloaded assets
-├── site.js
-├── play.png
-└── clipboard.png
-```
-
-## Customization
-
-You can modify the templates in `main.go` to change the styling and layout of the generated PDFs. The program uses Go templates for both individual examples and the introduction page.
-
-## Future-proof
-
-The program dynamically discovers all available examples from the GitHub repository, so it will automatically include any new examples added to the Go by Example project without requiring code updates.
 
 ## License
 
-This project is open source. Free to modify and distribute as needed.
+Open source. Free to modify and distribute.
