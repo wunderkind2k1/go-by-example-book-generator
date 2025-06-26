@@ -185,7 +185,7 @@ func main() {
 	fmt.Println("[INFO] Adding bookmarks to PDF...")
 
 	// Add bookmarks to the final PDF
-	finalPdf := "go_by_example_complete.pdf"
+	finalPdf := "go-by-example-generated-ebook.pdf"
 	err = htmlpdf.ApplyBookmarks(htmlpdf.ApplyBookmarksParams{
 		TempMergedPDF:     tempMergedPdf,
 		FinalPDF:          finalPdf,

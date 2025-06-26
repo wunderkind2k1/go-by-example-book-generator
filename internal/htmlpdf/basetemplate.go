@@ -104,11 +104,17 @@ func CreateBaseHtmlTemplate() string {
 </head>
 <body>
     <h1>Go by Example as a E-Book</h1>
-    <h2>Famously published at https://gobyexample.com</h2>
+    <h2>Famously published at <a href="https://gobyexample.com">https://gobyexample.com</a></h2>
 
     <div class="intro">
         <h3>📖 Navigation</h3>
         <p>Use your PDF viewer's bookmark panel to navigate between examples. The bookmarks provide clickable links to jump directly to each Go programming example. You can also click on the page numbers in the Table of Contents below to jump directly to each example.</p>
+    </div>
+
+    <div class="intro">
+        <h3>📚 About This Book</h3>
+        <p>This e-book was automatically generated from the contents of the <a href="https://github.com/mmcgrana/gobyexample">Go by Example repository</a> using the <a href="https://github.com/wunderkind2k1/go-by-example-book-generator">go-by-example-book-generator</a> tool.</p>
+        <p>The original Go by Example site is a comprehensive collection of annotated example programs that teach Go programming concepts through practical examples. This e-book format makes it easy to read offline and navigate through the examples using PDF bookmarks.</p>
     </div>
 
     <div style="page-break-before: always;"></div>
