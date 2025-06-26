@@ -268,6 +268,7 @@ func main() {
 
 	// Generate individual PDFs first (without TOC)
 	var pdfPaths []string
+	var examplePageCounts []int // Track page count for each example
 
 	// Generate individual example PDFs
 	for i, ex := range examples {
@@ -289,6 +290,14 @@ func main() {
 		if htmlExists && pdfExists {
 			fmt.Printf("[SKIPPED] %s (files already exist)\n", ex.Title)
 			pdfPaths = append(pdfPaths, pdfPath)
+
+			// Get page count of existing PDF
+			pageCount, err := api.PageCountFile(pdfPath)
+			if err != nil {
+				log.Printf("[WARNING] Could not get page count for %s: %v", ex.Title, err)
+				pageCount = 1 // fallback assumption
+			}
+			examplePageCounts = append(examplePageCounts, pageCount)
 			continue
 		}
 
@@ -314,6 +323,15 @@ func main() {
 		}
 
 		pdfPaths = append(pdfPaths, pdfPath)
+
+		// Get page count of the generated PDF
+		pageCount, err := api.PageCountFile(pdfPath)
+		if err != nil {
+			log.Printf("[WARNING] Could not get page count for %s: %v", ex.Title, err)
+			pageCount = 1 // fallback assumption
+		}
+		examplePageCounts = append(examplePageCounts, pageCount)
+		fmt.Printf("[PAGE COUNT] %s: %d pages\n", ex.Title, pageCount)
 
 		// Small delay to be nice to the browser
 		time.Sleep(100 * time.Millisecond)
@@ -403,9 +421,11 @@ func main() {
         <ul>
 `
 
+	// Calculate correct page numbers for TOC
+	currentPage := 3 // Intro is page 1, TOC starts at page 2, examples start from page 3
 	for i, ex := range examples {
-		pageNum := i + 3 // Intro is page 1, TOC starts at page 2, examples start from page 3
-		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %d. %s</li>\n", pageNum, i+1, ex.Title)
+		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %d. %s</li>\n", currentPage, i+1, ex.Title)
+		currentPage += examplePageCounts[i] // Add the actual page count for this example
 	}
 
 	introHTML += `        </ul>
@@ -456,15 +476,17 @@ func main() {
 		PageThru: introPageCount, // Intro and TOC span the actual number of pages
 	})
 
-	// Add bookmarks for each example
+	// Add bookmarks for each example with correct page ranges
 	// Examples start after the intro pages
 	exampleStartPage := introPageCount + 1
 	for i, ex := range examples {
+		pageCount := examplePageCounts[i]
 		bookmarks = append(bookmarks, pdfcpu.Bookmark{
 			Title:    fmt.Sprintf("%d. %s", i+1, ex.Title),
-			PageFrom: exampleStartPage + i, // Dynamic page calculation
-			PageThru: exampleStartPage + i,
+			PageFrom: exampleStartPage,
+			PageThru: exampleStartPage + pageCount - 1, // -1 because PageThru is inclusive
 		})
+		exampleStartPage += pageCount // Move to the next example's starting page
 	}
 
 	// Add bookmarks to the final PDF
