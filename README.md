@@ -8,11 +8,12 @@ This project downloads all Go programming language examples from the [Go by Exam
 - **Individual PDFs**: Creates a separate PDF for each Go example
 - **Combined PDF**: Merges all examples into a single PDF with an introduction page and table of contents
 - **Navigation bookmarks**: Includes clickable bookmarks in the PDF for easy navigation between examples
-- **Smart caching**: Skips downloading and converting files that already exist, making subsequent runs much faster
+- **Smart caching with word-based matching**: Intelligently detects existing files using Jaccard similarity on word sets, making subsequent runs extremely fast
 - **Dynamic page calculation**: Automatically determines correct page numbers for bookmarks regardless of content length
 - **Modern PDF generation**: Uses Rod (headless browser) and pdfcpu for high-quality PDF output
 - **Clean formatting**: Applies consistent styling and layout to all PDFs
 - **Self-contained**: Downloads all required assets (CSS, JS, images) locally
+- **Reliable filename handling**: Uses URL filenames as the source of truth, avoiding HTML parsing issues
 
 ## Requirements
 
@@ -53,12 +54,29 @@ The program creates:
 ## How it works
 
 1. **Dynamic discovery**: Fetches the list of all available examples from GitHub's embedded JSON data
-2. **Smart caching**: Checks for existing HTML and PDF files to avoid redundant work
+2. **Smart caching with word-based matching**:
+   - Extracts meaningful words from filenames (filtering out common terms like "go", "by", "example")
+   - Uses Jaccard similarity to match original filenames with existing HTML files
+   - Skips downloading if a match is found with ≥70% word overlap
 3. **Asset download**: Downloads all required CSS, JS, and image files from the repository
 4. **Content extraction**: Downloads and processes each HTML example file (skipping if already exists)
 5. **PDF generation**: Uses Rod (headless Chrome) to render HTML to PDF with proper styling
 6. **PDF merging**: Uses pdfcpu to combine all PDFs into a single file
 7. **Dynamic bookmark creation**: Calculates actual page numbers and adds navigation bookmarks to the final PDF
+
+## Smart Caching System
+
+The program implements an intelligent caching system that makes subsequent runs extremely fast:
+
+- **Word-based matching**: Compares filenames by extracting meaningful words and calculating similarity
+- **Jaccard similarity**: Uses intersection/union ratio to determine if files match
+- **URL-based titles**: Uses GitHub URL filenames as the source of truth, avoiding HTML parsing issues
+- **Resume capability**: Can be interrupted and restarted, continuing from where it left off
+
+Example matching:
+- Original: `"atomic-counters"` → words: `["atomic", "counters"]`
+- Existing: `"go_by_example_atomic_counters"` → words: `["atomic", "counters"]`
+- Result: Perfect match, skips download
 
 ## Navigation
 
@@ -77,6 +95,7 @@ To navigate the PDF:
 
 - **First run**: Downloads all examples and creates PDFs (may take several minutes)
 - **Subsequent runs**: Only processes new or missing examples, making it much faster
+- **Smart caching**: Uses word-based matching to detect existing files, avoiding unnecessary downloads
 - **Resume capability**: If interrupted, restart the program and it will continue from where it left off
 
 ## Dependencies
@@ -98,6 +117,10 @@ To navigate the PDF:
 ### File path issues
 - The program uses absolute paths for file:// URLs
 - Ensure the output directory is writable
+
+### Caching issues
+- The word-based matching system handles most edge cases automatically
+- If a file isn't detected as existing, it will be downloaded (this is safe and expected for new files)
 
 ## Example Output Structure
 
@@ -124,4 +147,4 @@ The program dynamically discovers all available examples from the GitHub reposit
 
 ## License
 
-This project is open source. Feel free to modify and distribute as needed.
+This project is open source. Free to modify and distribute as needed.

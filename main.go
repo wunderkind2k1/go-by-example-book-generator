@@ -89,15 +89,6 @@ func wordOverlap(originalWords, existingWords []string) float64 {
 	return float64(overlappingWords) / float64(totalUniqueWords)
 }
 
-func extractTitleFromHTML(htmlContent string) string {
-	titleRegex := regexp.MustCompile(`<title[^>]*>([^<]+)</title>`)
-	matches := titleRegex.FindStringSubmatch(htmlContent)
-	if len(matches) > 1 {
-		return strings.TrimSpace(matches[1])
-	}
-	return ""
-}
-
 func downloadFile(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -254,10 +245,7 @@ func getGitHubFiles(outputDir string) ([]Example, error) {
 							continue
 						}
 						htmlContent = string(content)
-						title = extractTitleFromHTML(htmlContent)
-						if title == "" {
-							title = strings.TrimSuffix(entry.Name(), ".html")
-						}
+						title = strings.TrimSuffix(entry.Name(), ".html")
 						sanitizedFilename = strings.TrimSuffix(entry.Name(), ".html")
 						foundExisting = true
 						fmt.Printf("[USING EXISTING] %s (as %s.html)\n", title, sanitizedFilename)
@@ -278,12 +266,10 @@ func getGitHubFiles(outputDir string) ([]Example, error) {
 				continue
 			}
 
-			title = extractTitleFromHTML(htmlContent)
-			if title == "" {
-				title = filename
-			}
-
-			sanitizedFilename = sanitizeFilename(title)
+			// Use the URL filename for both title and sanitized filename
+			// This ensures consistency and avoids HTML parsing issues
+			title = filename
+			sanitizedFilename = sanitizeFilename(filename)
 			fmt.Printf("[DOWNLOADED] %s -> %s\n", title, sanitizedFilename)
 		}
 
@@ -525,8 +511,7 @@ func main() {
 
 	// Add placeholder TOC entries
 	for i, ex := range examples {
-		title := strings.TrimPrefix(ex.Title, "Go by Example: ")
-		tempIntroHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", i+1, title)
+		tempIntroHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", i+1, ex.Title)
 	}
 
 	tempIntroHTML += `        </ul>
@@ -630,8 +615,7 @@ func main() {
 	// Examples start after the intro pages
 	currentPage := introPageCount + 1
 	for i, ex := range examples {
-		title := strings.TrimPrefix(ex.Title, "Go by Example: ")
-		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", currentPage, title)
+		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", currentPage, ex.Title)
 		currentPage += examplePageCounts[i] // Add the actual page count for this example
 	}
 
