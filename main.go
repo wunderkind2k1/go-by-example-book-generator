@@ -352,6 +352,109 @@ func main() {
 	// Create intro page with TOC and instructions
 	fmt.Println("[INFO] Creating intro page...")
 
+	// First, create a temporary TOC with placeholder page numbers
+	tempIntroHTML := `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Go by Example - Introduction</title>
+    <link rel="stylesheet" href="site.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #333;
+            padding-bottom: 8px;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #555;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .intro {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0066cc;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .intro h3 {
+            color: #0066cc;
+            margin-top: 0;
+            font-size: 16px;
+        }
+        .toc-container {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .toc-container ul {
+            font-size: 14px;
+        }
+        .toc-container li {
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+        .page-number {
+            color: #666;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Go by Example as a E-Book</h1>
+    <h2>Famously published at https://gobyexample.com</h2>
+
+    <div class="intro">
+        <h3>📖 Navigation</h3>
+        <p>Use your PDF viewer's bookmark panel to navigate between examples. The bookmarks provide clickable links to jump directly to each Go programming example.</p>
+    </div>
+
+    <div style="page-break-before: always;"></div>
+
+    <h2>Table of Contents</h2>
+    <div class="toc-container">
+        <ul>
+`
+
+	// Add placeholder TOC entries
+	for i, ex := range examples {
+		tempIntroHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %d. %s</li>\n", i+1, i+1, ex.Title)
+	}
+
+	tempIntroHTML += `        </ul>
+    </div>
+
+    <script src="site.js"></script>
+</body>
+</html>`
+
+	tempIntroHtmlPath := filepath.Join(outputDir, "temp_intro.html")
+	err = createHTMLFile(tempIntroHTML, tempIntroHtmlPath)
+	if err != nil {
+		log.Fatalf("[ERROR] Could not create temp intro HTML: %v", err)
+	}
+
+	tempIntroPdfPath := filepath.Join(outputDir, "temp_intro.pdf")
+	err = htmlToPDF(browser, tempIntroHtmlPath, tempIntroPdfPath)
+	if err != nil {
+		log.Fatalf("[ERROR] Could not create temp intro PDF: %v", err)
+	}
+
+	// Get the actual page count of the intro PDF
+	introPageCount, err := api.PageCountFile(tempIntroPdfPath)
+	if err != nil {
+		log.Printf("[WARNING] Could not get intro page count: %v", err)
+		introPageCount = 2 // fallback assumption
+	}
+	fmt.Printf("[INTRO PAGE COUNT] %d pages\n", introPageCount)
+
+	// Now create the final intro HTML with correct page numbers
 	introHTML := `<!DOCTYPE html>
 <html>
 <head>
@@ -422,7 +525,8 @@ func main() {
 `
 
 	// Calculate correct page numbers for TOC
-	currentPage := 3 // Intro is page 1, TOC starts at page 2, examples start from page 3
+	// Examples start after the intro pages
+	currentPage := introPageCount + 1
 	for i, ex := range examples {
 		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %d. %s</li>\n", currentPage, i+1, ex.Title)
 		currentPage += examplePageCounts[i] // Add the actual page count for this example
@@ -448,6 +552,10 @@ func main() {
 	}
 	fmt.Printf("[INTRO PDF CREATED] intro.pdf\n")
 
+	// Clean up temporary files
+	os.Remove(tempIntroHtmlPath)
+	os.Remove(tempIntroPdfPath)
+
 	// Now merge intro with examples
 	tempMergedPdf := filepath.Join(outputDir, "temp_with_intro.pdf")
 	introAndExamples := []string{introPdfPath, mergedExamplesPdf}
@@ -455,13 +563,6 @@ func main() {
 	err = api.MergeCreateFile(introAndExamples, tempMergedPdf, false, conf)
 	if err != nil {
 		log.Fatalf("[ERROR] Could not merge intro with examples: %v", err)
-	}
-
-	// Get the page count of the intro section to determine where examples start
-	introPageCount, err := api.PageCountFile(introPdfPath)
-	if err != nil {
-		log.Printf("[WARNING] Could not get intro page count: %v", err)
-		introPageCount = 2 // fallback assumption
 	}
 
 	// Add bookmarks to the final PDF
