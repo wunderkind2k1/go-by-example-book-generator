@@ -1,6 +1,13 @@
+![image](https://github.com/user-attachments/assets/61b08f86-0118-4803-aac6-59fa27adb5cf)
+
 # Go by Example PDF Generator
 
 A tool that automatically generates a comprehensive PDF e-book from the [Go by Example](https://gobyexample.com) website. It downloads all Go programming examples and creates a single, navigable PDF with bookmarks and a table of contents.
+This is how it is going to look like:
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4e305189-8c5c-4699-b0d9-c689563831d9" alt="How the generated go by example e-book looks like in a pdf viewer" width="650">
+</p>
+
 
 ## Background & Motivation
 
