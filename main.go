@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
@@ -185,42 +184,17 @@ func main() {
 	// Add bookmarks to the final PDF
 	fmt.Println("[INFO] Adding bookmarks to PDF...")
 
-	var bookmarks []pdfcpu.Bookmark
-
-	// Add intro bookmark
-	bookmarks = append(bookmarks, pdfcpu.Bookmark{
-		Title:    "Introduction & Table of Contents",
-		PageFrom: 1,
-		PageThru: introPageCount, // Intro and TOC span the actual number of pages
-	})
-
-	// Add bookmarks for each example with correct page ranges
-	// Examples start after the intro pages
-	exampleStartPage := introPageCount + 1
-	for i, ex := range examples {
-		pageCount := examplePageCounts[i]
-		bookmarks = append(bookmarks, pdfcpu.Bookmark{
-			Title:    fmt.Sprintf("%d. %s", i+1, ex.Title),
-			PageFrom: exampleStartPage,
-			PageThru: exampleStartPage + pageCount - 1, // -1 because PageThru is inclusive
-		})
-		exampleStartPage += pageCount // Move to the next example's starting page
-	}
-
 	// Add bookmarks to the final PDF
 	finalPdf := "go_by_example_complete.pdf"
-	err = api.AddBookmarksFile(tempMergedPdf, finalPdf, bookmarks, true, conf)
+	err = htmlpdf.ApplyBookmarks(htmlpdf.ApplyBookmarksParams{
+		TempMergedPDF:     tempMergedPdf,
+		FinalPDF:          finalPdf,
+		Examples:          examples,
+		IntroPageCount:    introPageCount,
+		ExamplePageCounts: examplePageCounts,
+	})
 	if err != nil {
-		log.Printf("[WARNING] Could not add bookmarks: %v", err)
-		// If bookmark creation fails, just copy the temp file
-		err = os.Rename(tempMergedPdf, finalPdf)
-		if err != nil {
-			log.Fatalf("[ERROR] Could not rename temp file: %v", err)
-		}
-	} else {
-		fmt.Println("[BOOKMARKS ADDED] Navigation bookmarks created")
-		// Remove the temp file since we created the final one with bookmarks
-		os.Remove(tempMergedPdf)
+		log.Fatalf("[ERROR] Could not apply bookmarks: %v", err)
 	}
 
 	// Clean up temporary files
