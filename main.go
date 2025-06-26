@@ -491,6 +491,13 @@ func main() {
             color: #666;
             font-weight: bold;
         }
+        .page-number a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .page-number a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -499,7 +506,7 @@ func main() {
 
     <div class="intro">
         <h3>📖 Navigation</h3>
-        <p>Use your PDF viewer's bookmark panel to navigate between examples. The bookmarks provide clickable links to jump directly to each Go programming example.</p>
+        <p>Use your PDF viewer's bookmark panel to navigate between examples. The bookmarks provide clickable links to jump directly to each Go programming example. You can also click on the page numbers in the Table of Contents below to jump directly to each example.</p>
     </div>
 
     <div style="page-break-before: always;"></div>
@@ -511,7 +518,7 @@ func main() {
 
 	// Add placeholder TOC entries
 	for i, ex := range examples {
-		tempIntroHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", i+1, ex.Title)
+		tempIntroHTML += fmt.Sprintf("        <li><span class=\"page-number\"><a href=\"#page=%d\">Page %d</a>:</span> %s</li>\n", i+1, i+1, ex.Title)
 	}
 
 	tempIntroHTML += `        </ul>
@@ -593,6 +600,13 @@ func main() {
             color: #666;
             font-weight: bold;
         }
+        .page-number a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .page-number a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -601,7 +615,7 @@ func main() {
 
     <div class="intro">
         <h3>📖 Navigation</h3>
-        <p>Use your PDF viewer's bookmark panel to navigate between examples. The bookmarks provide clickable links to jump directly to each Go programming example.</p>
+        <p>Use your PDF viewer's bookmark panel to navigate between examples. The bookmarks provide clickable links to jump directly to each Go programming example. You can also click on the page numbers in the Table of Contents below to jump directly to each example.</p>
     </div>
 
     <div style="page-break-before: always;"></div>
@@ -615,7 +629,7 @@ func main() {
 	// Examples start after the intro pages
 	currentPage := introPageCount + 1
 	for i, ex := range examples {
-		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", currentPage, ex.Title)
+		introHTML += fmt.Sprintf("        <li><span class=\"page-number\"><a href=\"#page=%d\">Page %d</a>:</span> %s</li>\n", currentPage, currentPage, ex.Title)
 		currentPage += examplePageCounts[i] // Add the actual page count for this example
 	}
 
