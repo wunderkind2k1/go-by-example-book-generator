@@ -32,6 +32,63 @@ func sanitizeFilename(title string) string {
 	return re.ReplaceAllString(title, "_")
 }
 
+// extractWords splits a filename into meaningful words
+func extractWords(filename string) []string {
+	// Remove file extension
+	filename = strings.TrimSuffix(filename, ".html")
+
+	// Split by common separators: hyphens, underscores, spaces, colons
+	words := strings.FieldsFunc(filename, func(r rune) bool {
+		return r == '-' || r == '_' || r == ' ' || r == ':'
+	})
+
+	// Filter out empty strings and common words
+	var result []string
+	for _, word := range words {
+		word = strings.ToLower(strings.TrimSpace(word))
+		if word != "" && word != "go" && word != "by" && word != "example" {
+			result = append(result, word)
+		}
+	}
+
+	return result
+}
+
+// wordOverlap calculates the overlap ratio between two word sets
+// Uses Jaccard similarity: intersection / union of the word sets
+func wordOverlap(originalWords, existingWords []string) float64 {
+	if len(originalWords) == 0 || len(existingWords) == 0 {
+		return 0.0
+	}
+
+	// Create sets for efficient lookup
+	originalWordSet := make(map[string]bool)
+	for _, word := range originalWords {
+		originalWordSet[word] = true
+	}
+
+	existingWordSet := make(map[string]bool)
+	for _, word := range existingWords {
+		existingWordSet[word] = true
+	}
+
+	// Count overlapping words
+	overlappingWords := 0
+	for word := range originalWordSet {
+		if existingWordSet[word] {
+			overlappingWords++
+		}
+	}
+
+	// Calculate overlap ratio (intersection / union)
+	totalUniqueWords := len(originalWordSet) + len(existingWordSet) - overlappingWords
+	if totalUniqueWords == 0 {
+		return 0.0
+	}
+
+	return float64(overlappingWords) / float64(totalUniqueWords)
+}
+
 func extractTitleFromHTML(htmlContent string) string {
 	titleRegex := regexp.MustCompile(`<title[^>]*>([^<]+)</title>`)
 	matches := titleRegex.FindStringSubmatch(htmlContent)
@@ -166,25 +223,69 @@ func getGitHubFiles(outputDir string) ([]Example, error) {
 	}
 
 	var examples []Example
-	fmt.Printf("[INFO] Fetching %d examples from GitHub...\n", len(exampleFiles))
+	fmt.Printf("[INFO] Processing %d examples...\n", len(exampleFiles))
 
 	for _, filename := range exampleFiles {
-		url := fmt.Sprintf("https://raw.githubusercontent.com/mmcgrana/gobyexample/master/public/%s", filename)
+		// First, try to find existing HTML files that might match this example
+		// We'll use word-based matching to find corresponding files
+		var htmlContent string
+		var title string
+		var sanitizedFilename string
+		var foundExisting bool
 
-		fmt.Printf("[DOWNLOADING] %s\n", filename)
+		// Extract words from the original filename
+		originalWords := extractWords(filename)
 
-		htmlContent, err := downloadFile(url)
-		if err != nil {
-			log.Printf("[WARNING] Failed to download %s: %v", filename, err)
-			continue
+		// Scan existing HTML files to find a match
+		entries, err := os.ReadDir(outputDir)
+		if err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".html") {
+					// Extract words from the existing HTML filename
+					existingWords := extractWords(strings.TrimSuffix(entry.Name(), ".html"))
+
+					// Check if there's significant word overlap
+					if wordOverlap(originalWords, existingWords) >= 0.7 { // 70% overlap threshold
+						// Found a match, read the HTML file
+						htmlPath := filepath.Join(outputDir, entry.Name())
+						content, err := os.ReadFile(htmlPath)
+						if err != nil {
+							log.Printf("[WARNING] Failed to read existing HTML file %s: %v", entry.Name(), err)
+							continue
+						}
+						htmlContent = string(content)
+						title = extractTitleFromHTML(htmlContent)
+						if title == "" {
+							title = strings.TrimSuffix(entry.Name(), ".html")
+						}
+						sanitizedFilename = strings.TrimSuffix(entry.Name(), ".html")
+						foundExisting = true
+						fmt.Printf("[USING EXISTING] %s (as %s.html)\n", title, sanitizedFilename)
+						break
+					}
+				}
+			}
 		}
 
-		title := extractTitleFromHTML(htmlContent)
-		if title == "" {
-			title = filename
-		}
+		if !foundExisting {
+			// Download HTML content from GitHub
+			url := fmt.Sprintf("https://raw.githubusercontent.com/mmcgrana/gobyexample/master/public/%s", filename)
+			fmt.Printf("[DOWNLOADING] %s\n", filename)
 
-		sanitizedFilename := sanitizeFilename(title)
+			htmlContent, err = downloadFile(url)
+			if err != nil {
+				log.Printf("[WARNING] Failed to download %s: %v", filename, err)
+				continue
+			}
+
+			title = extractTitleFromHTML(htmlContent)
+			if title == "" {
+				title = filename
+			}
+
+			sanitizedFilename = sanitizeFilename(title)
+			fmt.Printf("[DOWNLOADED] %s -> %s\n", title, sanitizedFilename)
+		}
 
 		examples = append(examples, Example{
 			Title:   title,
@@ -192,10 +293,10 @@ func getGitHubFiles(outputDir string) ([]Example, error) {
 			File:    sanitizedFilename,
 		})
 
-		fmt.Printf("[DOWNLOADED] %s -> %s\n", title, sanitizedFilename)
-
-		// Small delay to be nice to the server
-		time.Sleep(100 * time.Millisecond)
+		// Small delay to be nice to the server (only when downloading)
+		if !foundExisting {
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 
 	sort.Slice(examples, func(i, j int) bool {
@@ -424,7 +525,8 @@ func main() {
 
 	// Add placeholder TOC entries
 	for i, ex := range examples {
-		tempIntroHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %d. %s</li>\n", i+1, i+1, ex.Title)
+		title := strings.TrimPrefix(ex.Title, "Go by Example: ")
+		tempIntroHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", i+1, title)
 	}
 
 	tempIntroHTML += `        </ul>
@@ -528,7 +630,8 @@ func main() {
 	// Examples start after the intro pages
 	currentPage := introPageCount + 1
 	for i, ex := range examples {
-		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %d. %s</li>\n", currentPage, i+1, ex.Title)
+		title := strings.TrimPrefix(ex.Title, "Go by Example: ")
+		introHTML += fmt.Sprintf("        <li><span class=\"page-number\">Page %d:</span> %s</li>\n", currentPage, title)
 		currentPage += examplePageCounts[i] // Add the actual page count for this example
 	}
 
